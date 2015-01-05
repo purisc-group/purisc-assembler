@@ -19,39 +19,35 @@ Input
 -----
 Example: 
 
-PROGRAM_MEM:
-//Program memory
-//C styled comments are ok
-//For literal memory locations use # before the number, anything else is considered a label
-top:    a0      a0      NEXT
-        counter a0      NEXT
-        one     neg      NEXT
-        counter counter #12  //adfadsfasdf
-15:     a0      counter NEXT  /*324234234
-dfasdfasdfasdfasd*/
-12:     a0      a0      top
-
-
-
-
-DATA_MEM:
+PROGRAM_MEM:  
+//Program memory  
+//C styled comments are ok  
+//For literal memory locations use # before the number, anything else is considered a label  
+top:    a0      a0      NEXT  
+        counter a0      NEXT  
+        one     neg      NEXT  
+        counter counter #12  //adfadsfasdf  
+15:     a0      counter NEXT  /*324234234  
+dfasdfasdfasdfasd*/  
+12:     a0      a0      top  
+  
+  
+  
+  
+DATA_MEM:  
 /* Some initial values for data memory - the assembler will convert these to 
    numerical addresses. You can specify a numerical label to tell the assembler
-   to use that specific address for your value.*/
-zero:   #0
-one:    #1
-two:    #2
-four:   #4
-eight:  #8
-sixteen: #16
-a0:     #0
-a1:     #0
-a2:     #0
-a3:     #0
-counter:#0
-output: #0
-neg: #-1
-be: #0
-asd: #1
-
-
+   to use that specific address for your value.*/  
+zero:   #0  
+one:    #1  
+two:    #2  
+four:   #4  
+eight:  #8  
+sixteen: #16  
+a0:     #0  
+a1:     #0  
+a2:     #0  
+a3:     #0  
+counter:#0  
+output: #0  
+neg: #-1  
