@@ -4,8 +4,9 @@ import sys, getopt
 import struct
 
 #Usage:
-#       python regex.py [-i inputfile] [-o outputfile [outputfile2]] 
-#       [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v]
+#       python assembler.py [-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v] [-r]
+
+#if -r flag is not set, it will output as a binary file. There is a 8 byte header. The first 4 bytes corresponding to a 32 bit integer representing the number of lines (groups of 3 operands) in the program memory (comes first) and the last 4 bytes corresponding to the number of data memory values.
 
 def main(argv):
 
@@ -21,7 +22,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "i:o:d:p:fvr",["inputFile=", "outputFile="])
     except getopt.GetoptError:
-        print "Invalid arguments, " + randomInsult() + ".";
+        print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v] [-r];
         sys.exit(2);
 
     for opt, arg in opts:
@@ -45,7 +46,6 @@ def main(argv):
         elif opt in ("-r", "--readable"):
             formatAsBinary = False;
 
-    print inputFileName
     inputFile = open(inputFileName,"r");
     inputText = inputFile.read();
     inputFile.close();
@@ -92,9 +92,7 @@ def main(argv):
     for i,val in enumerate(programMem):
             
         if val == "NEXT":
-            programMem[i] = "#" + str(i+1);
-                
-    
+            programMem[i] = "#" + str(i+1);            
   
 #resolve variables into addresses
     for i,val in enumerate(programMem):
@@ -113,6 +111,14 @@ def main(argv):
 
 #output results
     outputFile = open(outputFileNames[0], "w");
+    
+    #add header to the binary file if necessary
+    if formatAsBinary:
+        outputFile.write(struct.pack('<i',len(programMem)/3)
+        if len(outputFileNames == 2):
+            outputFile.write(struct.pack('<i',0)
+        else:
+            outputFile.write(struct.pack('<i',len(dataMem))
     outputString = "";
 
     for index, val in enumerate(programMem):
@@ -134,6 +140,10 @@ def main(argv):
     if(len(outputFileNames) == 2):
         outputFile.close();
         outputFile = open(outputFileNames[1], "w");
+        #add header to the binary file if necessary
+        if formatAsBinary:
+            outputFile.write(struct.pack("<i",0)
+            outputFile.write(struct.pack("<i",len(dataMem))
             
     #if there is only one memory file, offset the data memory with zero pad
     if (len(outputFileNames) == 1):
@@ -157,7 +167,6 @@ def main(argv):
             outputString += str(value);
         # in the two file case, the program needs to know data addresses
         elif(len(outputFileNames) == 2):
-            print address
             outputFile.write(formatValue(address,formatAsBinary))
             outputFile.write(formatValue(" ",formatAsBinary))
             outputFile.write(formatValue(value,formatAsBinary));
@@ -222,7 +231,6 @@ def filterComments(string):
     return string;
         
 def formatValue(value,formatAsBinary):
-    print "formatting",value
     if formatAsBinary:
         if (value == "\n" or value == " "):
             return ""
