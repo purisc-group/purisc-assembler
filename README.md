@@ -8,12 +8,14 @@ Usage
 
 python assembler.py [-i inputfile] [-o outputfile [outputfile2]] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v]
 
+python assembler.py [-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v] [-r]
+
 * -i to specify the input file
 * -o to specify the output file. Specify two if you want the program and data memory to be in separate files, the program memory coming in the first file
 * -d to specify the initial data memory location. The default is 1000
 * -p to specify the initial program memory location. The default is 1
 * -f to format the output with the three operands on the same line. Omit -f to force each operand to have its own line
-
+* -r to output human-readable. If -r flag is not set, it will output as a binary file. There is an 8 byte header. The first 4 bytes corresponding to a 32 bit integer representing the number of lines (groups of 3 operands) in the program memory (comes first) and the last 4 bytes corresponding to the number of data memory values.
 
 Input
 -----
