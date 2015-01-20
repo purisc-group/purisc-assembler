@@ -114,11 +114,11 @@ def main(argv):
     
     #add header to the binary file if necessary
     if formatAsBinary:
-        outputFile.write(struct.pack('<i',len(programMem)/3))
+        outputFile.write(struct.pack('>i',len(programMem)/3))
         if len(outputFileNames) == 2:
-            outputFile.write(struct.pack('<i',0))
+            outputFile.write(struct.pack('>i',0))
         else:
-            outputFile.write(struct.pack('<i',len(dataMem)))
+            outputFile.write(struct.pack('>i',len(dataMem)))
     outputString = "";
 
     for index, val in enumerate(programMem):
@@ -142,8 +142,8 @@ def main(argv):
         outputFile = open(outputFileNames[1], "w");
         #add header to the binary file if necessary
         if formatAsBinary:
-            outputFile.write(struct.pack("<i",0))
-            outputFile.write(struct.pack("<i",len(dataMem)))
+            outputFile.write(struct.pack(">i",0))
+            outputFile.write(struct.pack(">i",len(dataMem)))
             
     #if there is only one memory file, offset the data memory with zero pad
     if (len(outputFileNames) == 1):
