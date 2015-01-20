@@ -244,7 +244,7 @@ def formatValue(value,formatAsBinary):
         else:
             return struct.pack('>i',int(value))
     else:
-        return value
+        return str(value)
         
 def isReservedAddress(address, reservedAddresses):
     for key,value in reservedAddresses.iteritems():
