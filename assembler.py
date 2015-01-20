@@ -51,8 +51,6 @@ def main(argv):
     inputFile = open(inputFileName,"r");
     inputText = inputFile.read();
     inputFile.close();
-    
-    print outputFileNames
 
 #parse program and data memory
     memoryArray = parseInput(inputText);
@@ -76,10 +74,12 @@ def main(argv):
     for raw in rawDataStrings:
         variableName = re.findall("\S*(?=:)", raw)[0];
         value = re.findall("(?<=#)[-1]?\d*", raw)[0];
+      #  if variableName.isdigit() and isReservedAddress(int(variableName),reservedKeywords):
+            
         dataMem[variableName] = [nextDataMem, value];
         nextDataMem += 1;
-        #while isReservedAddress(nextDataMem,reservedKeywords):
-       #     nextDataMem += 1;
+        while isReservedAddress(nextDataMem,reservedKeywords):
+            nextDataMem += 1;
 
 
 #resolve labels in program memory
@@ -247,7 +247,7 @@ def formatValue(value,formatAsBinary):
         return value
         
 def isReservedAddress(address, reservedAddresses):
-    for key,value in reservedAddresses:
+    for key,value in reservedAddresses.iteritems():
         if value == address:
             return True
             
