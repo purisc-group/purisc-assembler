@@ -20,7 +20,7 @@ def main(argv):
 
 #Command line arguments
     try:
-        opts, args = getopt.getopt(argv, "i:o:d:p:fvr:",["inputFile=", "outputFile="])
+        opts, args = getopt.getopt(argv, "i:o:d:p:rfv")
     except getopt.GetoptError:
         print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v] [-r]"
         sys.exit(2);
@@ -37,19 +37,22 @@ def main(argv):
 
         elif opt in ("-p", "--programOffset"):
             programMemOffset = arg;
+        
+        elif opt in ("-r", "--readable"):
+            formatAsBinary = False;
                 
         elif opt == "-f":
             formatMachineCode = True;
                 
         elif opt == "-v":
             verbose = True;
-        elif opt in ("-r", "--readable"):
-            formatAsBinary = False;
+        
 
     inputFile = open(inputFileName,"r");
     inputText = inputFile.read();
     inputFile.close();
-
+    
+    print outputFileNames
 
 #parse program and data memory
     memoryArray = parseInput(inputText);
@@ -75,8 +78,8 @@ def main(argv):
         value = re.findall("(?<=#)[-1]?\d*", raw)[0];
         dataMem[variableName] = [nextDataMem, value];
         nextDataMem += 1;
-        while isReservedAddress(nextDataMem,reservedKeywords):
-            nextDataMem += 1;
+        #while isReservedAddress(nextDataMem,reservedKeywords):
+       #     nextDataMem += 1;
 
 
 #resolve labels in program memory
