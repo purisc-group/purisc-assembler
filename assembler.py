@@ -20,7 +20,7 @@ def main(argv):
 
 #Command line arguments
     try:
-        opts, args = getopt.getopt(argv, "i:o:d:p:fvr",["inputFile=", "outputFile="])
+        opts, args = getopt.getopt(argv, "i:o:d:p:fvr:",["inputFile=", "outputFile="])
     except getopt.GetoptError:
         print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v] [-r]"
         sys.exit(2);
@@ -55,6 +55,8 @@ def main(argv):
     memoryArray = parseInput(inputText);
     programMemString = memoryArray[0];
     dataMemString = memoryArray[1];
+    
+    reservedKeywords = {"oFlag": 1337,"oReg":1338}
 
 #create initial program memory
     programMem = re.findall("\S+:\s*#?\S+|#?\S+|NEXT", programMemString); 
@@ -73,6 +75,8 @@ def main(argv):
         value = re.findall("(?<=#)[-1]?\d*", raw)[0];
         dataMem[variableName] = [nextDataMem, value];
         nextDataMem += 1;
+        while isReservedAddress(nextDataMem,reservedKeywords):
+            nextDataMem += 1;
 
 
 #resolve labels in program memory
@@ -238,6 +242,13 @@ def formatValue(value,formatAsBinary):
             return struct.pack('>i',int(value))
     else:
         return value
+        
+def isReservedAddress(address, reservedAddresses):
+    for key,value in reservedAddresses:
+        if value == address:
+            return True
+            
+    return False
 
 if __name__ == '__main__':
     main(sys.argv[1:])
