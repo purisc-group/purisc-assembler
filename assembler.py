@@ -8,6 +8,8 @@ import struct
 
 #if -r flag is not set, it will output as a binary file. There is a 8 byte header. The first 4 bytes corresponding to a 32 bit integer representing the number of lines (groups of 3 operands) in the program memory (comes first) and the last 4 bytes corresponding to the number of data memory values.
 
+reservedKeywords = {"OFLAG": 1337,"OREG":1338}
+
 def main(argv):
 
     dataMemOffset = 1000;
@@ -56,8 +58,6 @@ def main(argv):
     memoryArray = parseInput(inputText);
     programMemString = memoryArray[0];
     dataMemString = memoryArray[1];
-    
-    reservedKeywords = {"oFlag": 1337,"oReg":1338}
 
 #create initial program memory
     programMem = re.findall("\S+:\s*#?\S+|#?\S+|NEXT", programMemString); 
@@ -74,13 +74,13 @@ def main(argv):
     for raw in rawDataStrings:
         variableName = re.findall("\S*(?=:)", raw)[0];
         value = re.findall("(?<=#)[-1]?\d*", raw)[0];
-      #  if variableName.isdigit() and isReservedAddress(int(variableName),reservedKeywords):
-            
-        dataMem[variableName] = [nextDataMem, value];
-        nextDataMem += 1;
-        while isReservedAddress(nextDataMem,reservedKeywords):
+        if variableName.strip() in reservedKeywords:
+            dataMem[variableName] = [reservedKeywords[variableName],value]
+        else:
+            dataMem[variableName] = [nextDataMem, value];
             nextDataMem += 1;
-
+            while isReservedKeyword(nextDataMem):
+                nextDataMem += 1;
 
 #resolve labels in program memory
     for i,val in enumerate(programMem):
@@ -94,7 +94,6 @@ def main(argv):
                 if value == label:
                     programMem[j] = "#" + str(i + programMemOffset);
 
-    
 #resolve NEXT keyword
     for i,val in enumerate(programMem):
             
@@ -103,14 +102,29 @@ def main(argv):
   
 #resolve variables into addresses
     for i,val in enumerate(programMem):
-
+        #variable already added in datamemory
         if val in dataMem:
             programMem[i] = str(dataMem[val][0]);
 
+        #offset required
+        elif re.match(".*\+",val):
+            end = val.find("+");
+            if val[:end] in dataMem:
+                base = val[:end];
+                offset = val[end+1:];
+                if re.match("#",offset): #literal
+                    programMem[i] = str(dataMem[base][0] + int(offset[1:]));
+                else:
+                    print "no offset"
+                    programMem[i] = str(dataMem[base][0] + dataMem[offset][0]);
+
+
+        #"variable" is a literal address
         elif re.match("#",val):
             programMem[i] = val[1:];
 
         else:
+            print val
             dataMem[val] = [nextDataMem, "0"]; #initialize data to 0
             programMem[i] = str(nextDataMem);                        
             nextDataMem += 1;
@@ -161,14 +175,18 @@ def main(argv):
     
     
     #sort the data memory by address so the cpu can use it
-    sortedDataMem = [[]]*len(dataMem);
+    sortedDataMem = [[]]*max(len(dataMem),maxReservedAddress()-dataMemOffset+1);
     for key in dataMem:
         address = dataMem[key][0];
         value = dataMem[key][1];
         sortedDataMem[address-dataMemOffset] = [address, value];
-    
+
     for address in range(sortedDataMem[0][0], sortedDataMem[len(sortedDataMem)-1][0]+1):
-        value = sortedDataMem[address-dataMemOffset][1];
+        if len(sortedDataMem[address-dataMemOffset]) == 2:
+            value = sortedDataMem[address-dataMemOffset][1];
+        else:
+            value = 0
+            
         if(len(outputFileNames) == 1):
             outputFile.write(formatValue(value,formatAsBinary));
             outputString += str(value);
@@ -246,12 +264,19 @@ def formatValue(value,formatAsBinary):
     else:
         return str(value)
         
-def isReservedAddress(address, reservedAddresses):
-    for key,value in reservedAddresses.iteritems():
+def isReservedKeyword(address):
+    for key,value in reservedKeywords.iteritems():
         if value == address:
             return True
             
     return False
 
+def maxReservedAddress():
+    maxAddr = -1;
+    for key,value in reservedKeywords.iteritems():
+        if value > maxAddr:
+            maxAddr = value
+    return maxAddr
+    
 if __name__ == '__main__':
     main(sys.argv[1:])
