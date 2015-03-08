@@ -1,2 +1,4 @@
-program_mem.mem
-data_memory.mem
+data*
+output*
+prog*
+input.slq
