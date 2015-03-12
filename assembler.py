@@ -12,10 +12,10 @@ reservedKeywords = {"OFLAG": 1337,"OREG":1338}
 
 def main(argv):
 
-    dataMemOffset = 1000;
-    programMemOffset = 0;
-    bootloadOffset = 0;
-    outputFileNames = ["program_memory.mem", "data_memory.mem"];
+    dataOffset = 3000;
+    bootloaderLength = 32;
+    localmemory = 8192; #8k
+    outputFileName = "";
     inputFileName = "input.slq";
     formatMachineCode = False;
     verbose = False;
@@ -23,9 +23,9 @@ def main(argv):
 
 #Command line arguments
     try:
-        opts, args = getopt.getopt(argv, "i:o:d:p:l:bfv")
+        opts, args = getopt.getopt(argv, "i:o:d:l:m:bfv")
     except getopt.GetoptError:
-        print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-l bootloaderOffset] [-f] [-v] [-r]"
+        print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-l bootloadLength] [-m localmemory] [-b] [-f] [-v]"
         sys.exit(2);
 
     for opt, arg in opts:
@@ -33,16 +33,16 @@ def main(argv):
             inputFileName = arg;
 
         elif opt in ("-o", "--outfile"):
-            outputFileNames = re.split(ur"[\s]+",arg);
+            outputFileNames = arg;
 
         elif opt in ("-d", "--data"):
-            dataMemOffset = int(arg,0);
-
-        elif opt in ("-p", "--program"):
-            programMemOffset = int(arg,0);
+            dataOffset = int(arg,0);
 
         elif opt in ("-l", "--bootloader"):
-            bootloaderOffset = int(arg,0);
+            bootloaderLength = int(arg,0);
+
+        elif opt in ("-m", "--localmemory"):
+            localmemory = int(arg,0);
         
         elif opt in ("-b", "--binary"):
             formatAsBinary = True;
@@ -52,188 +52,155 @@ def main(argv):
                 
         elif opt == "-v":
             verbose = True;
-        
 
+    #if don't specify output file, set it to the inputfile with .machine extension
+    if outputFileName == "":
+        extIndex = inputFileName.rfind(".");
+        if extIndex == -1:
+            extIndex = len(inputFileName);
+        outputFileName = inputFileName[:extIndex] + ".machine"
+        
     inputFile = open(inputFileName,"r");
     inputText = inputFile.read();
     inputFile.close();
 
 #parse program and data memory
     memoryArray = parseInput(inputText);
-    programMemString = memoryArray[0];
-    dataMemString = memoryArray[1];
+    programMemsString = memoryArray[0];
+    dataMemsString = memoryArray[1];
 
-#create initial data memory        
-    nextDataMem = dataMemOffset;
-    rawDataStrings = re.findall("\S+:\s*\S+", dataMemString);
-    dataMem = {};
+    memory = range(0,8*1024);
+    for i in memory:
+        memory[i] = 0;
 
-    for raw in rawDataStrings:
-        variableName = re.findall("\S*(?=:)", raw)[0];
-        value = re.findall("(?<=#)[-]?\d+|NEXT|&\S+", raw)[0];
-        if variableName.strip() in reservedKeywords:
-            dataMem[variableName] = [reservedKeywords[variableName],value]
-        else:
-            #points to the next memory location
-            if value == "NEXT":
-                value = nextDataMem + 1;
 
-            #pointers
-            if re.match("&",value):
-                var = value[1:];
+    for i in range(len(programMemsString)):
+        programMemString = programMemsString[i];
+        dataMemString = dataMemsString[i];
 
-                if var not in dataMem:
-                    print "error - pointing to a location that does not exist"
-                    sys.exit(2);
-                else:
-                    value = dataMem[var][0];
+        programMemOffset = bootloaderLength + (localmemory - bootloaderLength)*i / len(programMemsString);
+        dataMemOffset = programMemOffset + dataOffset;
 
-            #data
-            dataMem[variableName] = [nextDataMem, str(value)];
+        #create initial data memory        
+        nextDataMem = dataMemOffset;
+        rawDataStrings = re.findall("\S+:\s*\S+", dataMemString);
+        dataMem = {};
 
-            nextDataMem += 1;
-            while isReservedKeyword(nextDataMem):
+        for raw in rawDataStrings:
+            variableName = re.findall("\S*(?=:)", raw)[0];
+            value = re.findall("(?<=#)[-]?\d+|NEXT|&\S+", raw)[0];
+            if variableName.strip() in reservedKeywords:
+                dataMem[variableName] = [reservedKeywords[variableName],value]
+            else:
+                #points to the next memory location
+                if value == "NEXT":
+                    value = nextDataMem + 1;
+
+                #pointers
+                if re.match("&",value):
+                    var = value[1:];
+
+                    if var not in dataMem:
+                        print "error - pointing to a location that does not exist"
+                        sys.exit(2);
+                    else:
+                        value = dataMem[var][0];
+
+                #data
+                dataMem[variableName] = [nextDataMem, str(value)];
+
+                nextDataMem += 1;
+                while isReservedKeyword(nextDataMem):
+                    nextDataMem += 1;
+
+    #create initial program memory
+        programMem = re.findall("\S+:\s*#?[^\s,]+|#?[^\s,]+|NEXT", programMemString); 
+
+        if len(programMem) > dataMemOffset:
+            print "Warning:\n Initial data memory location collides with program memory, setting initial data memory to: " + len(programMem)
+            dataMemOffset = len(programMem);
+
+
+    #resolve labels in program memory
+        for i,val in enumerate(programMem):
+
+            if re.match("\S+:", val):
+                #get the label from the operand
+                label = re.findall("\S+(?=:)", val)[0]; 
+                
+                #remove the label and whitespace
+                programMem[i] = re.findall("(?<=:)\s*\S+", val)[0];
+                programMem[i] = re.sub("\s*","",programMem[i]);
+
+                #iterate through the program memory, replace the label with the appropriate line 
+                #address
+                for j,value in enumerate(programMem):
+                    if value == label:
+                        programMem[j] = "#" + str(i + programMemOffset);
+
+    #resolve NEXT keyword
+        for i,val in enumerate(programMem):
+                
+            if val == "NEXT":
+                programMem[i] = "#" + str(i+1+programMemOffset);          
+      
+    #resolve variables into addresses
+        for i,val in enumerate(programMem):
+            #variable already added in datamemory
+            if val in dataMem:
+                programMem[i] = str(dataMem[val][0]);
+
+            #offset required
+            elif re.match(".*\+",val):
+                end = val.find("+");
+                if val[:end] in dataMem:
+                    base = val[:end];
+                    offset = val[end+1:];
+                    if re.match("#",offset): #literal
+                        programMem[i] = str(dataMem[base][0] + int(offset[1:]));
+                    else:
+                        programMem[i] = str(dataMem[base][0] + dataMem[offset][0]);
+
+
+            #"variable" is a literal address
+            elif re.match("#",val):
+                programMem[i] = val[1:];
+
+            else:
+                dataMem[val] = [nextDataMem, "0"]; #initialize data to 0
+                programMem[i] = str(nextDataMem);                        
                 nextDataMem += 1;
 
+        #put memory into the giant memory list (represents localmemory)
+        memory[programMemOffset:programMemOffset+len(programMem)] = programMem;
 
-#create initial program memory
-    programMem = re.findall("\S+:\s*#?[^\s,]+|#?[^\s,]+|NEXT", programMemString); 
+        #walk through data memory and put it into the memory list
+        for i in dataMem:
+            location = int(dataMem[i][0]);
+            val = dataMem[i][1];
+            memory[location] = val;
 
-    if len(programMem) > dataMemOffset:
-        print "Warning:\n Initial data memory location collides with program memory, setting initial data memory to: " + len(programMem)
-        dataMemOffset = len(programMem);
-
-#resolve labels in program memory
-    for i,val in enumerate(programMem):
-
-        if re.match("\S+:", val):
-            #get the label from the operand
-            label = re.findall("\S+(?=:)", val)[0]; 
-            
-            #remove the label and whitespace
-            programMem[i] = re.findall("(?<=:)\s*\S+", val)[0];
-            programMem[i] = re.sub("\s*","",programMem[i]);
-
-            #iterate through the program memory, replace the label with the appropriate line 
-            #address
-            for j,value in enumerate(programMem):
-                if value == label:
-                    programMem[j] = "#" + str(i + programMemOffset);
-
-#resolve NEXT keyword
-    for i,val in enumerate(programMem):
-            
-        if val == "NEXT":
-            programMem[i] = "#" + str(i+1+programMemOffset);            
-  
-#resolve variables into addresses
-    for i,val in enumerate(programMem):
-        #variable already added in datamemory
-        if val in dataMem:
-            programMem[i] = str(dataMem[val][0]);
-
-        #offset required
-        elif re.match(".*\+",val):
-            end = val.find("+");
-            if val[:end] in dataMem:
-                base = val[:end];
-                offset = val[end+1:];
-                if re.match("#",offset): #literal
-                    programMem[i] = str(dataMem[base][0] + int(offset[1:]));
+    if len(outputFileNames) == 1:
+        outputFile = open(outputFileNames[0],'w');
+        outputString = "";
+        for mem in memory:
+            outputFile.write(formatValue(mem,formatAsBinary));
+            outputString += str(mem);
+            if (formatMachineCode):
+                if (index + 1) % 3 == 0:
+                    outputFile.write(formatValue("\n",formatAsBinary));
+                    outputString += "\n";
+                        
                 else:
-                    programMem[i] = str(dataMem[base][0] + dataMem[offset][0]);
-
-
-        #"variable" is a literal address
-        elif re.match("#",val):
-            programMem[i] = val[1:];
-
-        else:
-            dataMem[val] = [nextDataMem, "0"]; #initialize data to 0
-            programMem[i] = str(nextDataMem);                        
-            nextDataMem += 1;
-
-
-#output results
-    outputFile = open(outputFileNames[0], "w");
-    
-    #add header to the binary file if necessary
-    if formatAsBinary:
-        outputFile.write(struct.pack('>i',len(programMem)/3))
-        if len(outputFileNames) == 2:
-            outputFile.write(struct.pack('>i',0))
-        else:
-            outputFile.write(struct.pack('>i',len(dataMem)))
-    outputString = "";
-
-    for index, val in enumerate(programMem):
-        outputFile.write(formatValue(val,formatAsBinary));
-        outputString += str(val);
-        if (formatMachineCode):
-            if (index + 1) % 3 == 0:
+                    outputFile.write(formatValue(" ",formatAsBinary));
+                    outputString += " ";
+            else:
                 outputFile.write(formatValue("\n",formatAsBinary));
                 outputString += "\n";
-                    
-            else:
-                outputFile.write(formatValue(" ",formatAsBinary));
-                outputString += " ";
-        else:
-            outputFile.write(formatValue("\n",formatAsBinary));
-            outputString += "\n";
-
-    #switch to second output file if its name was given
-    if(len(outputFileNames) == 2):
         outputFile.close();
-        outputFile = open(outputFileNames[1], "w");
-        #add header to the binary file if necessary
-        if formatAsBinary:
-            outputFile.write(struct.pack(">i",0))
-            outputFile.write(struct.pack(">i",len(dataMem)))
-            
-    #if there is only one memory file, offset the data memory with zero pad
-    if (len(outputFileNames) == 1):
-        for i in range(len(programMem), dataMemOffset):
-            outputFile.write(formatValue("0",formatAsBinary))
-            outputFile.write(formatValue("\n",formatAsBinary));
-            outputString += "0\n";
-    
-    
-    #sort the data memory by address so the cpu can use it
-    sortedDataMem = [[]]*max(len(dataMem),maxReservedAddress()-dataMemOffset+1);
-    for key in dataMem:
-        address = dataMem[key][0];
-        value = dataMem[key][1];
-        sortedDataMem[address-dataMemOffset] = [address, value];
 
-    #walk through datamem and output
-    count = 0;
-    for entry in sortedDataMem:
-        if len(entry) == 2:
-            address = entry[0];
-            value = entry[1];
-        else:
-            value = 0;
-            address = dataMemOffset + count;
-
-        count += 1;
-            
-        if(len(outputFileNames) == 1):
-            outputFile.write(formatValue(value,formatAsBinary));
-            outputString += str(value);
-        # in the two file case, the program needs to know data addresses
-        elif(len(outputFileNames) == 2):
-            outputFile.write(formatValue(address,formatAsBinary))
-            outputFile.write(formatValue(" ",formatAsBinary))
-            outputFile.write(formatValue(value,formatAsBinary));
-            outputString += str(address) + " " + str(value);
-        outputFile.write(formatValue("\n",formatAsBinary));
-        outputString += "\n";
-    
-    outputFile.close();
-    
-    if verbose:
+    if verbose: 
         print outputString;
-
 
 
 def randomInsult():
@@ -257,22 +224,23 @@ def parseInput(inputText):
 #Return an array containing the program memory and data memory strings
 #The program memory comes first
 
-    #Order of program memory and data memory doesn't matter
-    programMem = re.findall("(?<=PROGRAM_MEM:).*(?=DATA_MEM:)", inputText, re.DOTALL);
-    if len(programMem) == 0:
-            programMem = re.findall("(?<=PROGRAM_MEM:).*", inputText, re.DOTALL);
-    programMem = programMem[0];
+    programMems = re.findall("(?<=PROGRAM_MEM_)\d:[\s\S]*?(?=DATA_MEM)|(?<=PROGRAM_MEM_)\d+:[\s\S]*?$",inputText);
+    for i,mem in enumerate(programMems):
+        mem = filterComments(mem);
+        programMems[i] = re.sub("\d+:","",mem);
 
-    dataMem = re.findall("(?<=DATA_MEM:).*(?=PROGRAM_MEM:)", inputText, re.DOTALL);
-    if len(dataMem) == 0:
-            dataMem = re.findall("(?<=DATA_MEM:).*", inputText, re.DOTALL);
-    dataMem = dataMem[0];
+    dataMems = re.findall("(?<=DATA_MEM_)\d:[\s\S]*?(?=PROGRAM_MEM)|(?<=DATA_MEM_)\d+:[\s\S]*?$",inputText);
 
+    for i,mem in enumerate(dataMems):
+        dataMems[i] = re.sub("^\d+:","",mem);
+        mem = filterComments(mem);
+        
 
-    programMem = filterComments(programMem);
-    dataMem = filterComments(dataMem);
+    if len(dataMems) != len(programMems):
+        print "error - program memory - data memory imbalance"
+        sys.exit(2);
 
-    return [programMem, dataMem];
+    return [programMems, dataMems];
 
 
 
