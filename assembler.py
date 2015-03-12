@@ -14,6 +14,7 @@ def main(argv):
 
     dataMemOffset = 1000;
     programMemOffset = 0;
+    bootloadOffset = 0;
     outputFileNames = ["program_memory.mem", "data_memory.mem"];
     inputFileName = "input.slq";
     formatMachineCode = False;
@@ -22,9 +23,9 @@ def main(argv):
 
 #Command line arguments
     try:
-        opts, args = getopt.getopt(argv, "i:o:d:p:bfv")
+        opts, args = getopt.getopt(argv, "i:o:d:p:l:bfv")
     except getopt.GetoptError:
-        print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-f] [-v] [-r]"
+        print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-p programMemoryOffset] [-l bootloaderOffset] [-f] [-v] [-r]"
         sys.exit(2);
 
     for opt, arg in opts:
@@ -34,11 +35,14 @@ def main(argv):
         elif opt in ("-o", "--outfile"):
             outputFileNames = re.split(ur"[\s]+",arg);
 
-        elif opt in ("-d", "--dataOffset"):
-            dataMemOffset = int(arg);
+        elif opt in ("-d", "--data"):
+            dataMemOffset = int(arg,0);
 
-        elif opt in ("-p", "--programOffset"):
-            programMemOffset = int(arg);
+        elif opt in ("-p", "--program"):
+            programMemOffset = int(arg,0);
+
+        elif opt in ("-l", "--bootloader"):
+            bootloaderOffset = int(arg,0);
         
         elif opt in ("-b", "--binary"):
             formatAsBinary = True;
@@ -61,16 +65,32 @@ def main(argv):
 
 #create initial data memory        
     nextDataMem = dataMemOffset;
-    rawDataStrings = re.findall("\S+:\s*#[-1]?\d*", dataMemString);
+    rawDataStrings = re.findall("\S+:\s*\S+", dataMemString);
     dataMem = {};
 
     for raw in rawDataStrings:
         variableName = re.findall("\S*(?=:)", raw)[0];
-        value = re.findall("(?<=#)[-1]?\d*", raw)[0];
+        value = re.findall("(?<=#)[-]?\d+|NEXT|&\S+", raw)[0];
         if variableName.strip() in reservedKeywords:
             dataMem[variableName] = [reservedKeywords[variableName],value]
         else:
-            dataMem[variableName] = [nextDataMem, value];
+            #points to the next memory location
+            if value == "NEXT":
+                value = nextDataMem + 1;
+
+            #pointers
+            if re.match("&",value):
+                var = value[1:];
+
+                if var not in dataMem:
+                    print "error - pointing to a location that does not exist"
+                    sys.exit(2);
+                else:
+                    value = dataMem[var][0];
+
+            #data
+            dataMem[variableName] = [nextDataMem, str(value)];
+
             nextDataMem += 1;
             while isReservedKeyword(nextDataMem):
                 nextDataMem += 1;
@@ -85,7 +105,6 @@ def main(argv):
 
 #resolve labels in program memory
     for i,val in enumerate(programMem):
-        print i
 
         if re.match("\S+:", val):
             #get the label from the operand
