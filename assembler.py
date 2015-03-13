@@ -78,7 +78,7 @@ def main(argv):
         programMemString = programMemsString[i];
         dataMemString = dataMemsString[i];
 
-        programMemOffset = bootloaderLength + (localmemory - bootloaderLength)*i / len(programMemsString);
+        programMemOffset = localmemory*i / len(programMemsString) + bootloaderLength;
         dataMemOffset = programMemOffset + dataOffset;
 
         #create initial data memory        
@@ -180,24 +180,24 @@ def main(argv):
             val = dataMem[i][1];
             memory[location] = val;
 
-    if len(outputFileNames) == 1:
-        outputFile = open(outputFileNames[0],'w');
-        outputString = "";
-        for mem in memory:
-            outputFile.write(formatValue(mem,formatAsBinary));
-            outputString += str(mem);
-            if (formatMachineCode):
-                if (index + 1) % 3 == 0:
-                    outputFile.write(formatValue("\n",formatAsBinary));
-                    outputString += "\n";
-                        
-                else:
-                    outputFile.write(formatValue(" ",formatAsBinary));
-                    outputString += " ";
-            else:
+    
+    outputFile = open(outputFileName,'w');
+    outputString = "";
+    for mem in memory:
+        outputFile.write(formatValue(mem,formatAsBinary));
+        outputString += str(mem);
+        if (formatMachineCode):
+            if (index + 1) % 3 == 0:
                 outputFile.write(formatValue("\n",formatAsBinary));
                 outputString += "\n";
-        outputFile.close();
+                    
+            else:
+                outputFile.write(formatValue(" ",formatAsBinary));
+                outputString += " ";
+        else:
+            outputFile.write(formatValue("\n",formatAsBinary));
+            outputString += "\n";
+    outputFile.close();
 
     if verbose: 
         print outputString;
