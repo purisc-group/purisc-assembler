@@ -20,12 +20,23 @@ def main(argv):
     formatMachineCode = False;
     verbose = False;
     formatAsBinary = False;
+    multiFile = False;
+
+    usage = "Usage: python" + sys.argv[0] + "[-i inputfile] [options]\n\
+    -o, --outputfile <outputfile>         specify the output file, defaults to the input file with .subleq as the extension\n\
+    -d, --data <dataMemoryOffset>         specify the number of memory locations between program memory and data memory, dafult 3000\n\
+    -b, --bootloader <bootloadLength>     the length of the bootloader for each computer group, default 32\n\
+    -l, --localmemory <localmemory>       size of total local memory, default 8k\n\
+    -r, --binary                          output as binary\n\
+    -f                                    format output in groups of 3\n\
+    -v                                    print output to the terminal\n\
+    -m                                    print the output in multiple files"
 
 #Command line arguments
     try:
-        opts, args = getopt.getopt(argv, "i:o:d:l:m:bfv")
+        opts, args = getopt.getopt(argv, "i:o:d:b:l:rfvhm")
     except getopt.GetoptError:
-        print "Usage: python",sys.argv[0],"[-i inputfile] [-o outputfile] [-d dataMemoryOffset] [-l bootloadLength] [-m localmemory] [-b] [-f] [-v]"
+        print usage
         sys.exit(2);
 
     for opt, arg in opts:
@@ -38,13 +49,13 @@ def main(argv):
         elif opt in ("-d", "--data"):
             dataOffset = int(arg,0);
 
-        elif opt in ("-l", "--bootloader"):
+        elif opt in ("-b", "--bootloader"):
             bootloaderLength = int(arg,0);
 
-        elif opt in ("-m", "--localmemory"):
+        elif opt in ("-l", "--localmemory"):
             localmemory = int(arg,0);
         
-        elif opt in ("-b", "--binary"):
+        elif opt in ("-r", "--binary"):
             formatAsBinary = True;
                 
         elif opt == "-f":
@@ -52,6 +63,13 @@ def main(argv):
                 
         elif opt == "-v":
             verbose = True;
+
+        elif opt in ("-h", "--help"):
+            print usage
+            sys.exit(0);
+
+        elif opt == "-m":
+            multiFile = True;
 
     #if don't specify output file, set it to the inputfile with .machine extension
     if outputFileName == "":
@@ -68,6 +86,7 @@ def main(argv):
     memoryArray = parseInput(inputText);
     programMemsString = memoryArray[0];
     dataMemsString = memoryArray[1];
+    numProgs = len(programMemsString);
 
     memory = range(0,8*1024);
     for i in memory:
@@ -78,7 +97,7 @@ def main(argv):
         programMemString = programMemsString[i];
         dataMemString = dataMemsString[i];
 
-        programMemOffset = localmemory*i / len(programMemsString) + bootloaderLength;
+        programMemOffset = localmemory*i / numProgs + bootloaderLength;
         dataMemOffset = programMemOffset + dataOffset;
 
         #create initial data memory        
@@ -181,23 +200,44 @@ def main(argv):
             memory[location] = val;
 
     
-    outputFile = open(outputFileName,'w');
     outputString = "";
-    for mem in memory:
-        outputFile.write(formatValue(mem,formatAsBinary));
-        outputString += str(mem);
-        if (formatMachineCode):
-            if (index + 1) % 3 == 0:
+    outputFiles = [];
+
+    if not multiFile:
+        bootloaderLength = 0;
+        outputFiles.append(open(outputFileName,'w'));
+        outputFile = outputFiles[0];
+
+    else:
+        for i in range(0,numProgs):
+            extIndex = inputFileName.rfind(".");
+            if extIndex == -1:
+                extIndex = len(inputFileName);
+            outputFiles.append(open(inputFileName[:extIndex] + str(i) +  ".machine",'w'))
+
+
+    for i in range(0,numProgs):
+        if multiFile:
+            outputFile = outputFiles[i];
+        for j in range(8*1024*i/numProgs + bootloaderLength,8*1024*(i+1)/numProgs):
+            mem = memory[j];
+            outputFile.write(formatValue(mem,formatAsBinary));
+            outputString += str(mem);
+            if (formatMachineCode):
+                if (index + 1) % 3 == 0:
+                    outputFile.write(formatValue("\n",formatAsBinary));
+                    outputString += "\n";
+                        
+                else:
+                    outputFile.write(formatValue(" ",formatAsBinary));
+                    outputString += " ";
+            else:
                 outputFile.write(formatValue("\n",formatAsBinary));
                 outputString += "\n";
-                    
-            else:
-                outputFile.write(formatValue(" ",formatAsBinary));
-                outputString += " ";
-        else:
-            outputFile.write(formatValue("\n",formatAsBinary));
-            outputString += "\n";
-    outputFile.close();
+
+
+    for out in outputFiles:
+        out.close();
 
     if verbose: 
         print outputString;
