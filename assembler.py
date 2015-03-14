@@ -273,15 +273,14 @@ def parseInput(inputText):
 #Return an array containing the program memory and data memory strings
 #The program memory comes first
 
-    programMems = re.findall("(?<=PROGRAM_MEM_)\d:[\s\S]*?(?=DATA_MEM)|(?<=PROGRAM_MEM_)\d+:[\s\S]*?$",inputText);
+    programMems = re.findall("(?<=PROGRAM_MEM)_?\d*:[\s\S]*?(?=DATA_MEM)|(?<=PROGRAM_MEM)_?\d*:[\s\S]*?$",inputText);
     for i,mem in enumerate(programMems):
         mem = filterComments(mem);
-        programMems[i] = re.sub("\d+:","",mem);
+        programMems[i] = re.sub("_?\d*:","",mem);
 
-    dataMems = re.findall("(?<=DATA_MEM_)\d:[\s\S]*?(?=PROGRAM_MEM)|(?<=DATA_MEM_)\d+:[\s\S]*?$",inputText);
-
+    dataMems = re.findall("(?<=DATA_MEM)_?\d*:[\s\S]*?(?=PROGRAM_MEM)|(?<=DATA_MEM)_?\d*:[\s\S]*?$",inputText);
     for i,mem in enumerate(dataMems):
-        dataMems[i] = re.sub("^\d+:","",mem);
+        dataMems[i] = re.sub("^_?\d*:","",mem);
         mem = filterComments(mem);
         
 
