@@ -21,20 +21,23 @@ def main(argv):
     verbose = False;
     formatAsBinary = False;
     multiFile = False;
+    zeroMemory = False;
 
     usage = "Usage: python" + sys.argv[0] + "[-i inputfile] [options]\n\
-    -o, --outputfile <outputfile>         specify the output file, defaults to the input file with .subleq as the extension\n\
+    -i, --infile <inputfile>              specify the input file, defaults to input.slq\n\
+    -o, --outputfile <outputfile>         specify the output file, defaults to the input file with .machine as the extension\n\
     -d, --data <dataMemoryOffset>         specify the number of memory locations between program memory and data memory, dafult 3000\n\
     -b, --bootloader <bootloadLength>     the length of the bootloader for each computer group, default 32\n\
     -l, --localmemory <localmemory>       size of total local memory, default 8k\n\
     -r, --binary                          output as binary\n\
-    -f                                    format output in groups of 3\n\
-    -v                                    print output to the terminal\n\
-    -m                                    print the output in multiple files"
+    -f, --format                          format output in groups of 3\n\
+    -v, --verbose                         print output to the terminal\n\
+    -m, --multifile                       print the output in multiple files\n\
+    -z, --zero                            zeros unused memory location, default is to set the data equal to their memory location\n"
 
 #Command line arguments
     try:
-        opts, args = getopt.getopt(argv, "i:o:d:b:l:rfvhm")
+        opts, args = getopt.getopt(argv, "i:o:d:b:l:rfvhmz")
     except getopt.GetoptError:
         print usage
         sys.exit(2);
@@ -58,18 +61,21 @@ def main(argv):
         elif opt in ("-r", "--binary"):
             formatAsBinary = True;
                 
-        elif opt == "-f":
+        elif opt in ("-f", "--format"):
             formatMachineCode = True;
                 
-        elif opt == "-v":
+        elif opt in ("-v", "--verbose"):
             verbose = True;
 
         elif opt in ("-h", "--help"):
             print usage
             sys.exit(0);
 
-        elif opt == "-m":
+        elif opt in ("-m", "--multiline"):
             multiFile = True;
+
+        elif opt in ("-z", "--zero"):
+            zeroMemory = True;
 
     #if don't specify output file, set it to the inputfile with .machine extension
     if outputFileName == "":
@@ -90,7 +96,10 @@ def main(argv):
 
     memory = range(0,8*1024);
     for i in memory:
-        memory[i] = 0;
+        if zeroMemory:
+            memory[i] = 0;
+        else:
+            memory[i] = i;
 
 
     for i in range(len(programMemsString)):
