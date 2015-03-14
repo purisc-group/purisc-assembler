@@ -13,7 +13,7 @@ reservedKeywords = {"OFLAG": 1337,"OREG":1338}
 def main(argv):
 
     dataOffset = 3000;
-    bootloaderLength = 32;
+    bootloaderLength = 0;
     localmemory = 8192; #8k
     outputFileName = "";
     inputFileName = "input.slq";
